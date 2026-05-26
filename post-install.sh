@@ -21,7 +21,15 @@ else
     echo "    Installing Claude Code via npm..."
     if command -v npm &>/dev/null; then
         npm install -g @anthropic-ai/claude-code
-        echo "    Claude Code installed."
+        # Symlink claude into ~/.pixi/bin so it's on PATH
+        CLAUDE_BIN=$(find "$HOME/.pixi/envs/node" -name "claude" -type f 2>/dev/null | head -n1)
+        if [ -n "$CLAUDE_BIN" ]; then
+            mkdir -p "$HOME/.pixi/bin"
+            ln -sf "$CLAUDE_BIN" "$HOME/.pixi/bin/claude"
+            echo "    Claude Code installed. Linked claude -> $CLAUDE_BIN"
+        else
+            echo "    Claude Code installed, but binary not found under ~/.pixi/envs/node"
+        fi
     else
         echo "    WARNING: npm not found — skipping Claude Code install."
         echo "    Run 'pixi global sync' first, then re-run this script."
