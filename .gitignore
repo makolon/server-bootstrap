@@ -1,0 +1,5 @@
+hosts.txt
+.DS_Store
+*.swp
+*.swo
+*~

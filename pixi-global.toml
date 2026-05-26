@@ -1,0 +1,21 @@
+version = 1
+
+[envs.neovim]
+channels = ["conda-forge"]
+dependencies = { neovim = ">=0.10" }
+exposed = { nvim = "nvim" }
+
+[envs.cli]
+channels = ["conda-forge"]
+dependencies = { ripgrep = "*", fd-find = "*", fzf = "*", lazygit = "*", git = "*", gcc = "*", make = "*", unzip = "*", tree-sitter-cli = "*" }
+exposed = { rg = "rg", fd = "fd", fzf = "fzf", lazygit = "lazygit", git = "git", gcc = "gcc", make = "make", unzip = "unzip", tree-sitter = "tree-sitter" }
+
+[envs.node]
+channels = ["conda-forge"]
+dependencies = { nodejs = ">=20" }
+exposed = { node = "node", npm = "npm", npx = "npx" }
+
+[envs.python]
+channels = ["conda-forge"]
+dependencies = { python = "3.12.*", uv = "*" }
+exposed = { python = "python", uv = "uv" }

@@ -1,0 +1,11 @@
+# hosts.txt — one SSH host per line
+# Lines starting with # are comments. Blank lines are ignored.
+#
+# Use any format that works with your SSH config:
+#   user@hostname
+#   hostname (if user is configured in ~/.ssh/config)
+#   alias (if defined in ~/.ssh/config)
+
+user@server1.example.com
+user@server2.example.com
+gpu-box
