@@ -42,7 +42,8 @@ bash bootstrap-all.sh
 | Environment | Packages | Exposed binaries |
 |-------------|----------|------------------|
 | `neovim` | neovim >=0.10 | `nvim` |
-| `cli` | ripgrep, fd-find, fzf, lazygit, git, gcc, make, unzip, tree-sitter-cli | `rg`, `fd`, `fzf`, `lazygit`, `git`, `gcc`, `make`, `unzip`, `tree-sitter` |
+| `cli` | ripgrep, fd-find, fzf, lazygit, git, gcc, make, unzip, tree-sitter-cli, tmux | `rg`, `fd`, `fzf`, `lazygit`, `git`, `gcc`, `make`, `unzip`, `tree-sitter`, `tmux` |
+| `fish` | fish | `fish` |
 | `node` | nodejs >=20 | `node`, `npm`, `npx` |
 | `python` | python 3.12, uv | `python`, `uv` |
 

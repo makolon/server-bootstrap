@@ -7,8 +7,13 @@ exposed = { nvim = "nvim" }
 
 [envs.cli]
 channels = ["conda-forge"]
-dependencies = { ripgrep = "*", fd-find = "*", fzf = "*", lazygit = "*", git = "*", gcc = "*", make = "*", unzip = "*", tree-sitter-cli = "*" }
-exposed = { rg = "rg", fd = "fd", fzf = "fzf", lazygit = "lazygit", git = "git", gcc = "gcc", make = "make", unzip = "unzip", tree-sitter = "tree-sitter" }
+dependencies = { ripgrep = "*", fd-find = "*", fzf = "*", lazygit = "*", git = "*", gcc = "*", make = "*", unzip = "*", tree-sitter-cli = "*", tmux = "*" }
+exposed = { rg = "rg", fd = "fd", fzf = "fzf", lazygit = "lazygit", git = "git", gcc = "gcc", make = "make", unzip = "unzip", tree-sitter = "tree-sitter", tmux = "tmux" }
+
+[envs.fish]
+channels = ["conda-forge"]
+dependencies = { fish = "*" }
+exposed = { fish = "fish" }
 
 [envs.node]
 channels = ["conda-forge"]
