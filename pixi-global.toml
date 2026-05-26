@@ -2,7 +2,7 @@ version = 1
 
 [envs.neovim]
 channels = ["conda-forge"]
-dependencies = { neovim = ">=0.10" }
+dependencies = { nvim = ">=0.10" }
 exposed = { nvim = "nvim" }
 
 [envs.cli]
