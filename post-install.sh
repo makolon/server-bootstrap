@@ -5,34 +5,38 @@ umask 077
 # ---------------------------------------------------------------------------
 # post-install.sh — Things outside pixi's reach
 #
-# This script installs global tools that can't be managed declaratively
-# through pixi-global.toml (e.g., npm globals, uv tools).
+# Claude Code is NOT published on conda-forge, so it cannot be managed
+# declaratively through pixi-global.toml. We install it with Anthropic's
+# official native installer, which drops a single self-contained binary at
+# ~/.local/bin/claude:
+#
+#   * No Node.js / npm required at runtime (the binary does not invoke node).
+#   * Keeps itself up to date via background auto-updates, in place.
+#   * Avoids the old npm-global + symlink-into-~/.pixi/bin approach, which
+#     left two copies of `claude` on disk (the npm one and the native one the
+#     auto-updater writes to ~/.local/bin) and a stale, easily-broken symlink.
 # ---------------------------------------------------------------------------
 
 echo "    Running post-install tasks..."
 
-# Ensure pixi-installed node/npm is on PATH
-export PATH="$HOME/.pixi/bin:$PATH"
+LOCAL_BIN="$HOME/.local/bin"
+# Make both pixi-installed tools and the native claude install reachable now.
+export PATH="$LOCAL_BIN:$HOME/.pixi/bin:$PATH"
 
-# --- Claude Code (npm global) ---
+# --- Claude Code (official native installer) ---
 if command -v claude &>/dev/null; then
-    echo "    Claude Code already installed: $(claude --version 2>/dev/null || echo 'unknown version')"
+    echo "    Claude Code already installed: $(claude --version 2>/dev/null || echo 'unknown version') ($(command -v claude))"
 else
-    echo "    Installing Claude Code via npm..."
-    if command -v npm &>/dev/null; then
-        npm install -g @anthropic-ai/claude-code
-        # Symlink claude into ~/.pixi/bin so it's on PATH
-        CLAUDE_BIN=$(find "$HOME/.pixi/envs/node" -name "claude" -type f 2>/dev/null | head -n1)
-        if [ -n "$CLAUDE_BIN" ]; then
-            mkdir -p "$HOME/.pixi/bin"
-            ln -sf "$CLAUDE_BIN" "$HOME/.pixi/bin/claude"
-            echo "    Claude Code installed. Linked claude -> $CLAUDE_BIN"
-        else
-            echo "    Claude Code installed, but binary not found under ~/.pixi/envs/node"
-        fi
+    echo "    Installing Claude Code via the official native installer..."
+    curl --proto =https --tlsv1.2 -fsSL https://claude.ai/install.sh | bash
+
+    if command -v claude &>/dev/null; then
+        echo "    Claude Code installed: $(command -v claude)"
+    elif [ -x "$LOCAL_BIN/claude" ]; then
+        echo "    Claude Code installed at $LOCAL_BIN/claude"
     else
-        echo "    WARNING: npm not found — skipping Claude Code install."
-        echo "    Run 'pixi global sync' first, then re-run this script."
+        echo "    WARNING: install finished but 'claude' was not found on PATH." >&2
+        echo "    Ensure $LOCAL_BIN is on your PATH, then run 'claude doctor'." >&2
     fi
 fi
 

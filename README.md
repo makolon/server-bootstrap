@@ -47,9 +47,18 @@ bash bootstrap-all.sh
 | `node` | nodejs >=20 | `node`, `npm`, `npx` |
 | `python` | python 3.12, uv | `python`, `uv` |
 
+> `node` exists for Neovim/Mason (JS-based LSPs and tools), **not** for Claude Code.
+
 ### Additional tools (`post-install.sh`)
 
-- **Claude Code** — installed globally via `npm install -g @anthropic-ai/claude-code`
+- **Claude Code** — installed with Anthropic's official native installer
+  (`curl -fsSL https://claude.ai/install.sh | bash`) to `~/.local/bin/claude`.
+
+  Claude Code is not published on conda-forge, so it can't live in
+  `pixi-global.toml`. The native installer ships a self-contained binary (no
+  Node.js at runtime) that auto-updates in place — avoiding the old
+  npm-global + symlink approach, which left two copies of `claude` on disk and
+  an easily-broken symlink. Make sure `~/.local/bin` is on your `PATH`.
 
 ### Neovim configuration
 
@@ -105,13 +114,14 @@ The pixi installer adds itself to `~/.bashrc`, but if you're in a non-login shel
 
 ```bash
 # bash/zsh — add to ~/.bashrc or ~/.zshrc
-export PATH="$HOME/.pixi/bin:$PATH"
+export PATH="$HOME/.pixi/bin:$HOME/.local/bin:$PATH"
 
 # fish — add to ~/.config/fish/config.fish
-set -gx PATH $HOME/.pixi/bin $PATH
+set -gx PATH $HOME/.pixi/bin $HOME/.local/bin $PATH
 ```
 
-Then restart your shell or `source` the file.
+`~/.pixi/bin` holds the pixi-managed tools; `~/.local/bin` holds the Claude
+Code native binary. Then restart your shell or `source` the file.
 
 ### Neovim plugins fail on first sync
 
@@ -120,6 +130,24 @@ The headless `Lazy sync` can fail on first run (missing dependencies, network is
 ### Claude Code requires login
 
 After installation, run `claude` and follow the authentication prompts. You'll need an Anthropic API key or to log in via your browser.
+
+### Two copies of `claude` / wrong version runs
+
+If `claude` resolves to an unexpected path or version, you probably have a
+leftover install from the old npm-based approach. Check which binary wins and
+remove the stale one:
+
+```bash
+which -a claude          # list every claude on PATH
+claude doctor            # reports the active install and known issues
+
+# Remove an old npm global + its symlink, if present
+npm uninstall -g @anthropic-ai/claude-code 2>/dev/null
+rm -f ~/.pixi/bin/claude
+```
+
+The native install (`~/.local/bin/claude`) is the one to keep; it auto-updates
+itself.
 
 ### SSH connection timeout in bootstrap-all.sh
 
