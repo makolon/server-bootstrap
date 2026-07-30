@@ -1,6 +1,6 @@
 # server-bootstrap
 
-Lightweight, sudo-free provisioning for Linux servers. A single `curl | bash` command installs CLI tools (Neovim, ripgrep, fd, lazygit, etc.) via [pixi](https://pixi.sh), sets up a Neovim config, and installs Claude Code — all user-local under `$HOME`, idempotent, and declarative.
+Lightweight, sudo-free provisioning for Linux servers. A single `curl | bash` command installs CLI tools (Neovim, ripgrep, fd, lazygit, etc.) via [pixi](https://pixi.sh), sets up a Neovim config, and installs the Claude Code and Codex CLIs — all user-local under `$HOME`, idempotent, and declarative.
 
 ## Quick start
 
@@ -54,11 +54,15 @@ bash bootstrap-all.sh
 - **Claude Code** — installed with Anthropic's official native installer
   (`curl -fsSL https://claude.ai/install.sh | bash`) to `~/.local/bin/claude`.
 
-  Claude Code is not published on conda-forge, so it can't live in
-  `pixi-global.toml`. The native installer ships a self-contained binary (no
-  Node.js at runtime) that auto-updates in place — avoiding the old
-  npm-global + symlink approach, which left two copies of `claude` on disk and
-  an easily-broken symlink. Make sure `~/.local/bin` is on your `PATH`.
+- **Codex CLI** — installed with OpenAI's official native installer
+  (`curl -fsSL https://github.com/openai/codex/releases/latest/download/install.sh | CODEX_NON_INTERACTIVE=1 bash`)
+  to `~/.local/bin/codex`.
+
+  Neither CLI is published on conda-forge, so they can't live in
+  `pixi-global.toml`. Each vendor's native installer ships a self-contained
+  binary (no Node.js at runtime) — avoiding the old npm-global + symlink
+  approach, which left two copies of the CLI on disk and an easily-broken
+  symlink. Both land in `~/.local/bin`, so make sure it is on your `PATH`.
 
 ### Neovim configuration
 
@@ -127,9 +131,10 @@ Code native binary. Then restart your shell or `source` the file.
 
 The headless `Lazy sync` can fail on first run (missing dependencies, network issues). This is non-fatal. Open `nvim` manually and plugins will install automatically.
 
-### Claude Code requires login
+### Claude Code / Codex require login
 
-After installation, run `claude` and follow the authentication prompts. You'll need an Anthropic API key or to log in via your browser.
+After installation, run `claude` (or `codex`) and follow the authentication
+prompts. You'll need the vendor's API key or to log in via your browser.
 
 ### Two copies of `claude` / wrong version runs
 

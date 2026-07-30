@@ -144,7 +144,7 @@ pixi global list 2>/dev/null || echo "  (run 'pixi global list' to see installed
 echo ""
 echo "IMPORTANT: Make sure these directories are on your PATH if not already done:"
 echo "  - \$HOME/.pixi/bin    (pixi-managed tools: nvim, rg, fd, fish, node, ...)"
-echo "  - \$HOME/.local/bin   (Claude Code native install)"
+echo "  - \$HOME/.local/bin   (Claude Code & Codex native installs)"
 echo ""
 echo '  export PATH="$HOME/.pixi/bin:$HOME/.local/bin:$PATH"'
 echo ""
