@@ -2,7 +2,9 @@ version = 1
 
 [envs.neovim]
 channels = ["conda-forge"]
-dependencies = { nvim = ">=0.10" }
+# Temporary compatibility pin: current nvim builds require the legacy
+# libunibilium.so.. SONAME shipped by unibilium 2.1.2.
+dependencies = { nvim = ">=0.10", unibilium = "<2.1.4" }
 exposed = { nvim = "nvim" }
 
 [envs.cli]

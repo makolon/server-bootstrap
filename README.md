@@ -41,13 +41,18 @@ bash bootstrap-all.sh
 
 | Environment | Packages | Exposed binaries |
 |-------------|----------|------------------|
-| `neovim` | neovim >=0.10 | `nvim` |
+| `neovim` | nvim >=0.10, unibilium <2.1.4 (temporary compatibility pin) | `nvim` |
 | `cli` | ripgrep, fd-find, fzf, lazygit, git, gcc, make, unzip, tree-sitter-cli, tmux | `rg`, `fd`, `fzf`, `lazygit`, `git`, `gcc`, `make`, `unzip`, `tree-sitter`, `tmux` |
 | `fish` | fish | `fish` |
 | `node` | nodejs >=20 | `node`, `npm`, `npx` |
 | `python` | python 3.12, uv | `python`, `uv` |
 
 > `node` exists for Neovim/Mason (JS-based LSPs and tools), **not** for Claude Code.
+
+> The editor package on conda-forge is `nvim`; `neovim` is the Python client.
+> `unibilium` is temporarily pinned below 2.1.4 because current `nvim` builds
+> reference the legacy `libunibilium.so..` SONAME. Remove the pin after a fixed
+> `nvim` build is available on conda-forge.
 
 ### Additional tools (`post-install.sh`)
 
