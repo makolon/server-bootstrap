@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Fake curl for tests — no network. Logs each URL to $FAKE_LOG and serves:
+#   pixi.sh installer          -> installs tests/fakes/pixi as $PIXI_HOME/bin/pixi
+#   this repo's raw files      -> copied from $FAKE_REPO
+#   Claude / Codex installers  -> create stub binaries in ~/.local/bin
+#                                 (FAKE_FAIL_INSTALL=claude|codex makes one fail)
+set -u
+
+fakes="$(cd "$(dirname "$0")/.." && pwd)"
+out=""
+url=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -o) out="$2"; shift 2 ;;
+        --proto) shift 2 ;;
+        https://*) url="$1"; shift ;;
+        *) shift ;;
+    esac
+done
+echo "curl $url" >> "$FAKE_LOG"
+
+fake_cli_installer() {
+    cat <<EOF
+echo "fake $1 installer: CODEX_NON_INTERACTIVE=\${CODEX_NON_INTERACTIVE:-}" >> "\$FAKE_LOG"
+if [ "\${FAKE_FAIL_INSTALL:-}" = "$1" ]; then echo "fake $1 installer: failing" >&2; exit 1; fi
+mkdir -p "\$HOME/.local/bin"
+printf '#!/bin/sh\necho "$1 0.0.0 (fake)"\n' > "\$HOME/.local/bin/$1"
+chmod +x "\$HOME/.local/bin/$1"
+EOF
+}
+
+body() {
+    case "$url" in
+        https://pixi.sh/install.sh)
+            cat <<EOF
+echo "fake pixi installer: PIXI_NO_PATH_UPDATE=\${PIXI_NO_PATH_UPDATE:-}" >> "\$FAKE_LOG"
+mkdir -p "\${PIXI_HOME:-\$HOME/.pixi}/bin"
+cp "$fakes/pixi" "\${PIXI_HOME:-\$HOME/.pixi}/bin/pixi"
+EOF
+            ;;
+        https://raw.githubusercontent.com/makolon/server-bootstrap/*)
+            cat "$FAKE_REPO/${url##*/}"
+            ;;
+        https://claude.ai/install.sh)
+            fake_cli_installer claude
+            ;;
+        https://github.com/openai/codex/releases/latest/download/install.sh)
+            fake_cli_installer codex
+            ;;
+        *)
+            echo "fake curl: unexpected URL: $url" >&2
+            return 6
+            ;;
+    esac
+}
+
+if [[ -n "$out" ]]; then
+    body > "$out"
+else
+    body
+fi

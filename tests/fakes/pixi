@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Fake pixi for tests — no network. Not on PATH: the fake pixi installer (see
+# fakes/bin/curl) copies it to $PIXI_HOME/bin, like the real one does.
+#   pixi global sync  exposes a stub for every key of every `exposed = { ... }`
+#                     in the manifest and removes stubs no longer listed.
+#                     Stub <name> logs its args and exits with $FAKE_RC_<name>.
+set -eu
+PIXI_HOME="${PIXI_HOME:-$HOME/.pixi}"
+echo "pixi $*" >> "$FAKE_LOG"
+
+case "$*" in
+    --version)
+        echo "pixi 0.0.0-fake"
+        ;;
+    "global sync")
+        bin="$PIXI_HOME/bin"
+        list="$PIXI_HOME/.fake-exposed"
+        mkdir -p "$bin"
+        if [[ -f "$list" ]]; then
+            while read -r name; do rm -f "$bin/$name"; done < "$list"
+        fi
+        sed -nE 's/^exposed[[:space:]]*=[[:space:]]*\{(.*)\}.*/\1/p' "$PIXI_HOME/manifests/pixi-global.toml" \
+            | tr ',' '\n' \
+            | sed -nE 's/^[[:space:]]*"?([A-Za-z0-9._-]+)"?[[:space:]]*=.*/\1/p' > "$list"
+        while read -r name; do
+            var="FAKE_RC_$(printf '%s' "$name" | tr -c 'A-Za-z0-9' '_')"
+            # shellcheck disable=SC2016  # $* belongs to the generated stub
+            printf '#!/bin/sh\necho "%s $*" >> "${FAKE_LOG:-/dev/null}"\nexit "${%s:-0}"\n' "$name" "$var" > "$bin/$name"
+            chmod +x "$bin/$name"
+        done < "$list"
+        ;;
+    "global list")
+        echo "(fake) environments from $PIXI_HOME/manifests/pixi-global.toml"
+        ;;
+    *)
+        echo "fake pixi: unsupported command: $*" >&2
+        exit 1
+        ;;
+esac

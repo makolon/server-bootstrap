@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Fake git for tests — no network. `git clone URL DIR` creates DIR/.git.
+echo "git $*" >> "$FAKE_LOG"
+if [[ "${1:-}" == clone ]]; then
+    mkdir -p "${*: -1}/.git"
+fi

@@ -7,8 +7,22 @@ exposed = { nvim = "nvim" }
 
 [envs.cli]
 channels = ["conda-forge"]
-dependencies = { ripgrep = "*", fd-find = "*", fzf = "*", lazygit = "*", git = "*", gcc = "*", make = "*", unzip = "*", tree-sitter-cli = "*", tmux = "*" }
-exposed = { rg = "rg", fd = "fd", fzf = "fzf", lazygit = "lazygit", git = "git", gcc = "gcc", make = "make", unzip = "unzip", tree-sitter = "tree-sitter", tmux = "tmux" }
+dependencies = { ripgrep = "*", fd-find = "*", fzf = "*", lazygit = "*", unzip = "*", tree-sitter-cli = "*", tmux = "*" }
+exposed = { rg = "rg", fd = "fd", fzf = "fzf", lazygit = "lazygit", unzip = "unzip", tree-sitter = "tree-sitter", tmux = "tmux" }
+
+# Build toolchain + git for Neovim plugins (lazy.nvim clones, tree-sitter
+# parsers, telescope-fzf-native) on servers that lack them.
+#
+# Deliberately exposed ONLY under pixi-* names so they never shadow the system
+# gcc/make/git: conda-forge gcc builds against its own sysroot (it does not
+# search /usr/include, and it is usually newer than nvcc supports), and
+# conda-forge git ignores /etc/gitconfig (git-lfs filters, proxies) and the
+# system CA store. bootstrap.sh puts plain-named wrappers (gcc, cc, make, git)
+# for these at the END of PATH, so they are used only where no system tool exists.
+[envs.toolchain]
+channels = ["conda-forge"]
+dependencies = { gcc = "*", make = "*", git = "*" }
+exposed = { pixi-gcc = "gcc", pixi-make = "make", pixi-git = "git" }
 
 [envs.fish]
 channels = ["conda-forge"]

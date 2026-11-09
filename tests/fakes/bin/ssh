@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Fake ssh for tests — no network. Runs the "remote" command locally, with
+# HOME=$FAKE_REMOTE_ROOT/<host> and stdin passed through, parsed by `bash -c`
+# the way a remote login shell would parse it.
+# Hosts named unreachable* simulate a connection failure (exit 255).
+set -u
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --) shift; break ;;
+        -[bcDEeFIiJLlmOoPpQRSWw]) shift 2 ;;   # options that take an argument
+        -*) shift ;;
+        *) break ;;
+    esac
+done
+host="$1"
+shift
+printf '%s\t%s\n' "$host" "$*" >> "$FAKE_LOG"
+
+case "$host" in
+    unreachable*)
+        echo "ssh: connect to host $host port 22: Connection refused" >&2
+        exit 255
+        ;;
+esac
+
+home="$FAKE_REMOTE_ROOT/$host"
+mkdir -p "$home/tmp"
+cd "$home" || exit 255
+exec env -i HOME="$home" TMPDIR="$home/tmp" PATH=/usr/bin:/bin bash -c "$*"

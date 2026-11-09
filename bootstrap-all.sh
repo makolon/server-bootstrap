@@ -1,35 +1,62 @@
 #!/usr/bin/env bash
+# bootstrap-all.sh — run bootstrap.sh on one or more hosts over SSH.
+#
+# Each host gets ONE SSH connection running `bash -s`. Its stdin is a short
+# script that writes bootstrap.sh, post-install.sh and pixi-global.toml (from
+# this local clone) into a fresh `mktemp -d` directory, runs bootstrap.sh, and
+# removes the directory on exit. bootstrap.sh's exit status is the remote exit
+# status, so failures are reported as failures.
+#
+# Must stay compatible with macOS's stock /bin/bash 3.2: no associative arrays,
+# no mapfile, and no "${array[@]}" expansion of a possibly-empty array.
 set -euo pipefail
-umask 077
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOSTS_FILE="$SCRIPT_DIR/hosts.txt"
+FILES=(bootstrap.sh post-install.sh pixi-global.toml)
+EOF_MARK="__SERVER_BOOTSTRAP_EOF__"
+SSH_OPTS=(-o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new)
 
-BOOTSTRAP_FILES=(
-    "$SCRIPT_DIR/bootstrap.sh"
-    "$SCRIPT_DIR/post-install.sh"
-    "$SCRIPT_DIR/pixi-global.toml"
-)
+usage() {
+    cat <<EOF
+Usage: $0 [host ...]
+
+Bootstraps each host over SSH using the files of this local clone.
+Without arguments, hosts are read from:
+  $HOSTS_FILE
+(one per line, '#' starts a comment — see hosts.txt.example).
+EOF
+}
+
+case "${1:-}" in
+    -h|--help) usage; exit 0 ;;
+esac
 
 # ---------------------------------------------------------------------------
-# Validate that all required files exist locally
+# Validate the files to transfer
 # ---------------------------------------------------------------------------
-for f in "${BOOTSTRAP_FILES[@]}"; do
-    if [[ ! -f "$f" ]]; then
-        echo "ERROR: Required file not found: $f" >&2
+for f in "${FILES[@]}"; do
+    if [[ ! -f "$SCRIPT_DIR/$f" ]]; then
+        echo "ERROR: Required file not found: $SCRIPT_DIR/$f" >&2
         echo "Run this script from a local clone of the repository." >&2
+        exit 1
+    fi
+    if grep -qxF "$EOF_MARK" "$SCRIPT_DIR/$f"; then
+        echo "ERROR: $f contains the line '$EOF_MARK', which is reserved." >&2
         exit 1
     fi
 done
 
 # ---------------------------------------------------------------------------
-# Validate hostname format (defense against injection via hosts.txt / args)
+# Validate host format (hosts come from hosts.txt / args and end up on the
+# ssh command line: no shell metacharacters, and no leading '-' that ssh
+# would parse as an option)
 # ---------------------------------------------------------------------------
 validate_host() {
     local host="$1"
-    if [[ ! "$host" =~ ^[a-zA-Z0-9@._:-]+$ ]]; then
-        echo "ERROR: Invalid hostname format: '$host'" >&2
-        echo "Hostnames may only contain: letters, digits, @, ., _, :, -" >&2
+    if [[ "$host" == -* || ! "$host" =~ ^[a-zA-Z0-9@._:-]+$ ]]; then
+        printf 'ERROR: Invalid host: %q\n' "$host" >&2
+        echo "Hosts may only contain letters, digits, @ . _ : - and must not start with '-'." >&2
         return 1
     fi
 }
@@ -42,33 +69,63 @@ hosts=()
 if [[ $# -gt 0 ]]; then
     hosts=("$@")
 elif [[ -f "$HOSTS_FILE" ]]; then
-    while IFS= read -r line; do
-        line="${line%%#*}"       # strip comments
-        line="${line// /}"       # strip whitespace
-        [[ -z "$line" ]] && continue
-        hosts+=("$line")
+    # `|| [[ -n $line ]]` keeps a last line that has no trailing newline.
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%%#*}"              # strip comments
+        line="${line//[[:space:]]/}"    # strip spaces, tabs and CR (CRLF files)
+        if [[ -n "$line" ]]; then
+            hosts+=("$line")
+        fi
     done < "$HOSTS_FILE"
 else
-    echo "Usage: $0 [host1 host2 ...]"
-    echo ""
-    echo "Or create a hosts.txt file (one host per line) in the same directory."
-    echo "See hosts.txt.example for the expected format."
+    usage >&2
     exit 1
 fi
 
-# Validate all hostnames before starting
+if [[ ${#hosts[@]} -eq 0 ]]; then
+    echo "ERROR: No hosts given ($HOSTS_FILE contains no host entries)." >&2
+    exit 1
+fi
+
+# Validate all hosts before connecting anywhere
 for host in "${hosts[@]}"; do
     validate_host "$host"
 done
 
-echo "Bootstrapping ${#hosts[@]} host(s)..."
-echo ""
+# ---------------------------------------------------------------------------
+# The script fed to `bash -s` on each host
+# ---------------------------------------------------------------------------
+remote_script() {
+    local f
+    # shellcheck disable=SC2016  # these lines are expanded on the remote host
+    printf '%s\n' \
+        'set -e' \
+        'd="$(mktemp -d)"' \
+        'trap '\''rm -rf "$d"'\'' EXIT'
+    for f in "${FILES[@]}"; do
+        # shellcheck disable=SC2016
+        printf 'cat > "$d/%s" <<'\''%s'\''\n' "$f" "$EOF_MARK"
+        cat "$SCRIPT_DIR/$f"
+        # make sure the end marker starts on its own line
+        if [[ -n "$(tail -c 1 "$SCRIPT_DIR/$f")" ]]; then
+            echo
+        fi
+        printf '%s\n' "$EOF_MARK"
+    done
+    # stdin of bootstrap.sh must not be this script
+    # shellcheck disable=SC2016
+    printf '%s\n' 'bash "$d/bootstrap.sh" </dev/null'
+}
 
 # ---------------------------------------------------------------------------
 # Run bootstrap on each host
-#   - Files are transferred via scp (not downloaded on the remote from GitHub)
-#   - Remote servers only need outbound access to conda-forge, not to GitHub
+#   - Files come from this local clone, so remote servers never download this
+#     repo's scripts from GitHub (they still need outbound access for the
+#     tools themselves — see "Network requirements" in README.md).
 # ---------------------------------------------------------------------------
+echo "Bootstrapping ${#hosts[@]} host(s)..."
+echo ""
+
 succeeded=()
 failed=()
 
@@ -77,22 +134,24 @@ for host in "${hosts[@]}"; do
     echo "  Host: $host"
     echo "========================================"
 
-    REMOTE_TMP="\$HOME/.bootstrap-tmp-$$"
+    rc=0
+    # 2>/dev/null: if ssh cannot connect, writing the script fails with a
+    # broken pipe; ssh itself reports the real error.
+    remote_script 2>/dev/null | ssh "${SSH_OPTS[@]}" -- "$host" 'bash -s' || rc=$?
 
-    if ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new "$host" "mkdir -p $REMOTE_TMP" \
-       && scp -q "${BOOTSTRAP_FILES[@]}" "$host:$REMOTE_TMP/" \
-       && ssh -o ConnectTimeout=10 "$host" "bash '$REMOTE_TMP/bootstrap.sh'; rm -rf '$REMOTE_TMP'"; then
-        echo ""
+    echo ""
+    if [[ $rc -eq 0 ]]; then
         echo "  OK: $host"
         succeeded+=("$host")
     else
-        echo ""
-        echo "  FAILED: $host (exit code $?)"
-        failed+=("$host")
-        # Clean up remote temp dir on failure
-        ssh -o ConnectTimeout=10 "$host" "rm -rf '$REMOTE_TMP'" 2>/dev/null || true
+        if [[ $rc -eq 255 ]]; then
+            reason="exit code 255: SSH connection or authentication failed"
+        else
+            reason="exit code $rc from bootstrap.sh"
+        fi
+        echo "  FAILED: $host ($reason)"
+        failed+=("$host ($reason)")
     fi
-
     echo ""
 done
 
@@ -104,9 +163,11 @@ echo "  Summary"
 echo "========================================"
 echo ""
 echo "  Succeeded: ${#succeeded[@]}/${#hosts[@]}"
-for h in "${succeeded[@]}"; do
-    echo "    OK: $h"
-done
+if [[ ${#succeeded[@]} -gt 0 ]]; then
+    for h in "${succeeded[@]}"; do
+        echo "    OK: $h"
+    done
+fi
 
 if [[ ${#failed[@]} -gt 0 ]]; then
     echo ""
